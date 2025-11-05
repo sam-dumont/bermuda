@@ -1,6 +1,6 @@
 {
-  "domain": "bermuda",
-  "name": "Bermuda BLE Trilateration",
+  "domain": "bermuda_tri",
+  "name": "Bermuda BLE Trilateration (Real Triangulation Fork)",
   "bluetooth": [
     {
       "connectable": false,

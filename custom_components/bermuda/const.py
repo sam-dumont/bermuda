@@ -11,8 +11,8 @@ from homeassistant.const import Platform
 
 from .log_spam_less import BermudaLogSpamLess
 
-NAME = "Bermuda BLE Trilateration"
-DOMAIN = "bermuda"
+NAME = "Bermuda BLE Trilateration (Real Triangulation Fork)"
+DOMAIN = "bermuda_tri"
 DOMAIN_DATA = f"{DOMAIN}_data"
 # Version gets updated by github workflow during release.
 # The version in the repository should always be 0.0.0 to reflect
@@ -193,6 +193,25 @@ DOCS[CONF_SMOOTHING_SAMPLES] = (
     "How many samples to average distance smoothing. Bigger numbers"
     " make for slower distance increases. 10 or 20 seems good."
 )
+
+# Trilateration configuration
+CONF_TRILATERATION_ENABLED, DEFAULT_TRILATERATION_ENABLED = "trilateration_enabled", False
+DOCS[CONF_TRILATERATION_ENABLED] = "Enable real trilateration for position calculation."
+
+CONF_SCANNER_POSITIONS = "scanner_positions"
+DOCS[CONF_SCANNER_POSITIONS] = "Dictionary of scanner positions {scanner_address: {'x': float, 'y': float, 'z': float}}"
+
+CONF_ROOM_BOUNDARIES = "room_boundaries"
+DOCS[CONF_ROOM_BOUNDARIES] = "Dictionary of room boundary polygons {area_id: [{'x': float, 'y': float, 'z': float}, ...]}"
+
+CONF_TRAINING_MODE = "training_mode"
+DOCS[CONF_TRAINING_MODE] = "Enable training mode for learning room boundaries."
+
+CONF_POSITION_SMOOTHING_SAMPLES, DEFAULT_POSITION_SMOOTHING_SAMPLES = "position_smoothing_samples", 5
+DOCS[CONF_POSITION_SMOOTHING_SAMPLES] = "Number of samples to smooth position calculations. Lower than distance smoothing for responsiveness."
+
+CONF_MIN_TRILATERATION_CONFIDENCE, DEFAULT_MIN_TRILATERATION_CONFIDENCE = "min_trilateration_confidence", 0.3
+DOCS[CONF_MIN_TRILATERATION_CONFIDENCE] = "Minimum confidence (0-1) to use trilateration result, otherwise fallback to closest scanner."
 
 # Defaults
 DEFAULT_NAME = DOMAIN
