@@ -261,7 +261,9 @@ def detect_room_from_position(
 
     for room in room_boundaries:
         # Check Z bounds first (floor level)
-        if not (room["z_min"] - z_tolerance <= position["z"] <= room["z_max"] + z_tolerance):
+        if not (
+            room["z_min"] - z_tolerance <= position["z"] <= room["z_max"] + z_tolerance
+        ):
             continue
 
         # Check if point is in room's 2D polygon
@@ -353,7 +355,11 @@ def export_room_boundaries_for_visualization(
             export_data["bounds"]["y_min"] = min(export_data["bounds"]["y_min"], p["y"])
             export_data["bounds"]["y_max"] = max(export_data["bounds"]["y_max"], p["y"])
 
-        export_data["bounds"]["z_min"] = min(export_data["bounds"]["z_min"], room["z_min"])
-        export_data["bounds"]["z_max"] = max(export_data["bounds"]["z_max"], room["z_max"])
+        export_data["bounds"]["z_min"] = min(
+            export_data["bounds"]["z_min"], room["z_min"]
+        )
+        export_data["bounds"]["z_max"] = max(
+            export_data["bounds"]["z_max"], room["z_max"]
+        )
 
     return export_data

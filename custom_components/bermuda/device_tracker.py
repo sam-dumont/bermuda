@@ -82,7 +82,11 @@ class BermudaDeviceTracker(BermudaEntity, BaseTrackerEntity):
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
         """Return extra state attributes for this device."""
-        _scannername = self._device.area_advert.name if self._device.area_advert is not None else None
+        _scannername = (
+            self._device.area_advert.name
+            if self._device.area_advert is not None
+            else None
+        )
         return {"scanner": _scannername, "area": self._device.area_name}
 
     @property
@@ -98,4 +102,8 @@ class BermudaDeviceTracker(BermudaEntity, BaseTrackerEntity):
     @property
     def icon(self) -> str:
         """Return device icon."""
-        return "mdi:bluetooth-connect" if self._device.zone == STATE_HOME else "mdi:bluetooth-off"
+        return (
+            "mdi:bluetooth-connect"
+            if self._device.zone == STATE_HOME
+            else "mdi:bluetooth-off"
+        )

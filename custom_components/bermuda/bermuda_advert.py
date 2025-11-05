@@ -76,25 +76,35 @@ class BermudaAdvert(dict):
         self.scanner_address: Final[str] = scanner_device.address
         self.device_address: Final[str] = parent_device.address
         self._device = parent_device
-        self.ref_power: float = self._device.ref_power  # Take from parent at first, might be changed by metadevice l8r
+        self.ref_power: float = (
+            self._device.ref_power
+        )  # Take from parent at first, might be changed by metadevice l8r
         self.apply_new_scanner(scanner_device)
 
         self.options = options
 
         self.stamp: float = 0
-        self.new_stamp: float | None = None  # Set when a new advert is loaded from update
+        self.new_stamp: float | None = (
+            None  # Set when a new advert is loaded from update
+        )
         self.rssi: float | None = None
         self.tx_power: float | None = None
         self.rssi_distance: float | None = None
         self.rssi_distance_raw: float
-        self.stale_update_count = 0  # How many times we did an update but no new stamps were found.
+        self.stale_update_count = (
+            0  # How many times we did an update but no new stamps were found.
+        )
         self.hist_stamp: list[float] = []
         self.hist_rssi: list[int] = []
         self.hist_distance: list[float] = []
         self.hist_distance_by_interval: list[float] = []  # updated per-interval
         self.hist_interval = []  # WARNING: This is actually "age of ad when we polled"
-        self.hist_velocity: list[float] = []  # Effective velocity versus previous stamped reading
-        self.conf_rssi_offset = self.options.get(CONF_RSSI_OFFSETS, {}).get(self.scanner_address, 0)
+        self.hist_velocity: list[
+            float
+        ] = []  # Effective velocity versus previous stamped reading
+        self.conf_rssi_offset = self.options.get(CONF_RSSI_OFFSETS, {}).get(
+            self.scanner_address, 0
+        )
         self.conf_ref_power = self.options.get(CONF_REF_POWER)
         self.conf_attenuation = self.options.get(CONF_ATTENUATION)
         self.conf_max_velocity = self.options.get(CONF_MAX_VELOCITY)
@@ -111,13 +121,19 @@ class BermudaAdvert(dict):
         self.name: str = scanner_device.name  # or scandata.scanner.name
         self.scanner_device = scanner_device  # links to the source device
         if self.scanner_address != scanner_device.address:
-            _LOGGER.error("Advert %s received new scanner with wrong address %s", self.__repr__(), scanner_device)
+            _LOGGER.error(
+                "Advert %s received new scanner with wrong address %s",
+                self.__repr__(),
+                scanner_device,
+            )
         self.area_id: str | None = scanner_device.area_id
         self.area_name: str | None = scanner_device.area_name
         # Only remote scanners log timestamps, local usb adaptors do not.
         self.scanner_sends_stamps = scanner_device.is_remote_scanner
 
-    def update_advertisement(self, advertisementdata: AdvertisementData, scanner_device: BermudaDevice):
+    def update_advertisement(
+        self, advertisementdata: AdvertisementData, scanner_device: BermudaDevice
+    ):
         """
         Update gets called every time we see a new packet or
         every time we do a polled update.
@@ -132,7 +148,9 @@ class BermudaAdvert(dict):
         #
         if scanner_device is not self.scanner_device:
             _LOGGER.debug(
-                "Replacing stale scanner device %s with %s", self.scanner_device.__repr__(), scanner_device.__repr__()
+                "Replacing stale scanner device %s with %s",
+                self.scanner_device.__repr__(),
+                scanner_device.__repr__(),
             )
             self.apply_new_scanner(scanner_device)
 
@@ -144,13 +162,21 @@ class BermudaAdvert(dict):
 
             if new_stamp is None:
                 self.stale_update_count += 1
-                _LOGGER.debug("Advert from %s for %s lacks stamp, unexpected.", scanner.name, self._device.name)
+                _LOGGER.debug(
+                    "Advert from %s for %s lacks stamp, unexpected.",
+                    scanner.name,
+                    self._device.name,
+                )
                 return
 
             if self.stamp > new_stamp:
                 # The existing stamp is NEWER, bail but complain on the way.
                 self.stale_update_count += 1
-                _LOGGER.debug("Advert from %s for %s is OLDER than last recorded", scanner.name, self._device.name)
+                _LOGGER.debug(
+                    "Advert from %s for %s is OLDER than last recorded",
+                    scanner.name,
+                    self._device.name,
+                )
                 return
 
             if self.stamp == new_stamp:
@@ -161,13 +187,17 @@ class BermudaAdvert(dict):
         elif self.rssi != advertisementdata.rssi:
             # If the rssi has changed from last time, consider it "new". Since this scanner does
             # not send stamps, this is probably a USB bluetooth adaptor.
-            new_stamp = monotonic_time_coarse() - 3.0  # age usb adaptors slightly, since they are not "fresh"
+            new_stamp = (
+                monotonic_time_coarse() - 3.0
+            )  # age usb adaptors slightly, since they are not "fresh"
         else:
             # USB Adaptor has nothing new for us, bail.
             return
 
         # Update our parent scanner's last_seen if we have a new stamp.
-        if new_stamp > self.scanner_device.last_seen + 0.01:  # some slight warp seems common.
+        if (
+            new_stamp > self.scanner_device.last_seen + 0.01
+        ):  # some slight warp seems common.
             _LOGGER.debug(
                 "Advert from %s for %s is %.6fs NEWER than scanner's last_seen, odd",
                 self.scanner_device.name,
@@ -226,16 +256,24 @@ class BermudaAdvert(dict):
             # local_name (like nulls, \n, etc). Store a cleaned version as str
             # and the original as bytes.
             # Devices may also advert multiple names over time.
-            nametuplet = (clean_charbuf(advertisementdata.local_name), advertisementdata.local_name.encode())
+            nametuplet = (
+                clean_charbuf(advertisementdata.local_name),
+                advertisementdata.local_name.encode(),
+            )
             if len(self.local_name) == 0 or self.local_name[0] != nametuplet:
                 self.local_name.insert(0, nametuplet)
                 del self.local_name[HIST_KEEP_COUNT:]
                 # Lets see if we should pass the new name up to the parent device.
-                if self._device.name_bt_local_name is None or len(self._device.name_bt_local_name) < len(nametuplet[0]):
+                if self._device.name_bt_local_name is None or len(
+                    self._device.name_bt_local_name
+                ) < len(nametuplet[0]):
                     self._device.name_bt_local_name = nametuplet[0]
                     _want_name_update = True
 
-        if len(self.manufacturer_data) == 0 or self.manufacturer_data[0] != advertisementdata.manufacturer_data:
+        if (
+            len(self.manufacturer_data) == 0
+            or self.manufacturer_data[0] != advertisementdata.manufacturer_data
+        ):
             self.manufacturer_data.insert(0, advertisementdata.manufacturer_data)
 
             # If manufacturing data changes, we call the update. This is because iBeacons might change their
@@ -244,7 +282,10 @@ class BermudaAdvert(dict):
             _want_name_update = True
             del self.manufacturer_data[HIST_KEEP_COUNT:]
 
-        if len(self.service_data) == 0 or self.service_data[0] != advertisementdata.service_data:
+        if (
+            len(self.service_data) == 0
+            or self.service_data[0] != advertisementdata.service_data
+        ):
             self.service_data.insert(0, advertisementdata.service_data)
             if advertisementdata.service_data not in self.manufacturer_data[1:]:
                 _want_name_update = True
@@ -280,7 +321,9 @@ class BermudaAdvert(dict):
         else:
             ref_power = self.ref_power
 
-        distance = rssi_to_metres(self.rssi + self.conf_rssi_offset, ref_power, self.conf_attenuation)
+        distance = rssi_to_metres(
+            self.rssi + self.conf_rssi_offset, ref_power, self.conf_attenuation
+        )
         self.rssi_distance_raw = distance
         if reading_is_new:
             # Add a new historical reading
@@ -381,7 +424,10 @@ class BermudaAdvert(dict):
                 self.hist_distance_by_interval.clear()
                 self.hist_distance_by_interval.append(self.rssi_distance_raw)
 
-        elif new_stamp is None and (self.stamp is None or self.stamp < monotonic_time_coarse() - DISTANCE_TIMEOUT):
+        elif new_stamp is None and (
+            self.stamp is None
+            or self.stamp < monotonic_time_coarse() - DISTANCE_TIMEOUT
+        ):
             # DEVICE IS AWAY!
             # Last distance reading is stale, mark device distance as unknown.
             self.rssi_distance = None
@@ -410,7 +456,9 @@ class BermudaAdvert(dict):
                     peak_velocity = delta_d / delta_t
                 # if our initial reading is an approach, we are done here
                 if peak_velocity >= 0:
-                    for old_distance, old_stamp in zip(self.hist_distance[2:], self.hist_stamp[2:], strict=False):
+                    for old_distance, old_stamp in zip(
+                        self.hist_distance[2:], self.hist_stamp[2:], strict=False
+                    ):
                         if old_stamp is None:
                             continue  # Skip this iteration if hist_stamp[i] is None
 
@@ -446,7 +494,9 @@ class BermudaAdvert(dict):
 
                 # Discard the bogus reading by duplicating the last
                 if len(self.hist_distance_by_interval) > 0:
-                    self.hist_distance_by_interval.insert(0, self.hist_distance_by_interval[0])
+                    self.hist_distance_by_interval.insert(
+                        0, self.hist_distance_by_interval[0]
+                    )
                 else:
                     # If nothing to duplicate, just plug in the raw distance.
                     self.hist_distance_by_interval.insert(0, self.rssi_distance_raw)

@@ -42,7 +42,9 @@ async def async_setup_entry(
     coordinator: BermudaDataUpdateCoordinator = entry.runtime_data.coordinator
 
     created_devices: list[str] = []  # list of already-created devices
-    created_scanners: dict[str, list[str]] = {}  # list of scanner:address for created entities
+    created_scanners: dict[
+        str, list[str]
+    ] = {}  # list of scanner:address for created entities
 
     @callback
     def device_new(address: str) -> None:
@@ -106,9 +108,8 @@ async def async_setup_entry(
         # spun-up so we don't duplicate any.
 
         for scanner in coordinator.get_scanners:
-            if (
-                scanner.is_remote_scanner is None  # usb/HCI scanner's are fine.
-                or (scanner.is_remote_scanner and scanner.address_wifi_mac is None)
+            if scanner.is_remote_scanner is None or (  # usb/HCI scanner's are fine.
+                scanner.is_remote_scanner and scanner.address_wifi_mac is None
             ):
                 # This scanner doesn't have a wifi mac yet, bail out
                 # until they are all filled out.
@@ -123,8 +124,14 @@ async def async_setup_entry(
                         scanner,
                         address,
                     )
-                    entities.append(BermudaSensorScannerRange(coordinator, entry, address, scanner))
-                    entities.append(BermudaSensorScannerRangeRaw(coordinator, entry, address, scanner))
+                    entities.append(
+                        BermudaSensorScannerRange(coordinator, entry, address, scanner)
+                    )
+                    entities.append(
+                        BermudaSensorScannerRangeRaw(
+                            coordinator, entry, address, scanner
+                        )
+                    )
                     created_entry = created_scanners.setdefault(scanner, [])
                     created_entry.append(address)
         # _LOGGER.debug("Sensor received new_device signal for %s", address)
@@ -140,7 +147,9 @@ async def async_setup_entry(
     # Connect device_new to a signal so the coordinator can call it
     _LOGGER.debug("Registering device_new and scanners_changed callbacks")
     entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_DEVICE_NEW, device_new))
-    entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_SCANNERS_CHANGED, scanners_changed))
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, SIGNAL_SCANNERS_CHANGED, scanners_changed)
+    )
 
     # Create Global Bermuda entities
     async_add_entities(
@@ -279,7 +288,9 @@ class BermudaSensorScanner(BermudaSensor):
         # entry. Instead refer to the BermudaDevice, which takes trouble
         # to use user-given names etc.
         if self._device.area_advert is not None:
-            return self.coordinator.devices[self._device.area_advert.scanner_address].name
+            return self.coordinator.devices[
+                self._device.area_advert.scanner_address
+            ].name
         return None
 
 
@@ -297,7 +308,9 @@ class BermudaSensorRssi(BermudaSensor):
 
     @property
     def native_value(self):
-        return self._cached_ratelimit(self._device.area_rssi, fast_falling=False, fast_rising=True)
+        return self._cached_ratelimit(
+            self._device.area_rssi, fast_falling=False, fast_rising=True
+        )
 
     @property
     def device_class(self):
@@ -599,6 +612,7 @@ class BermudaVisibleDeviceCount(BermudaGlobalSensor):
 
 
 # Trilateration Position Sensors
+
 
 class BermudaSensorPositionX(BermudaSensor):
     """Sensor showing calculated X position coordinate."""

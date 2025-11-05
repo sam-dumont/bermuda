@@ -75,13 +75,27 @@ AREA_MAX_AD_AGE: Final = max(DISTANCE_TIMEOUT / 3, UPDATE_INTERVAL * 2)
 # originators of beacon-like data. We then create a "meta-device" for the beacon's
 # uuid. Other non-static-mac protocols should use this method as well, by adding their
 # own BEACON_ types.
-METADEVICE_TYPE_IBEACON_SOURCE: Final = "beacon source"  # The source-device sending a beacon packet (MAC-tracked)
-METADEVICE_IBEACON_DEVICE: Final = "beacon device"  # The meta-device created to track the beacon
-METADEVICE_TYPE_PRIVATE_BLE_SOURCE: Final = "private_ble_src"  # current (random) MAC of a private ble device
-METADEVICE_PRIVATE_BLE_DEVICE: Final = "private_ble_device"  # meta-device create to track private ble device
+METADEVICE_TYPE_IBEACON_SOURCE: Final = (
+    "beacon source"  # The source-device sending a beacon packet (MAC-tracked)
+)
+METADEVICE_IBEACON_DEVICE: Final = (
+    "beacon device"  # The meta-device created to track the beacon
+)
+METADEVICE_TYPE_PRIVATE_BLE_SOURCE: Final = (
+    "private_ble_src"  # current (random) MAC of a private ble device
+)
+METADEVICE_PRIVATE_BLE_DEVICE: Final = (
+    "private_ble_device"  # meta-device create to track private ble device
+)
 
-METADEVICE_SOURCETYPES: Final = {METADEVICE_TYPE_IBEACON_SOURCE, METADEVICE_TYPE_PRIVATE_BLE_SOURCE}
-METADEVICE_DEVICETYPES: Final = {METADEVICE_IBEACON_DEVICE, METADEVICE_PRIVATE_BLE_DEVICE}
+METADEVICE_SOURCETYPES: Final = {
+    METADEVICE_TYPE_IBEACON_SOURCE,
+    METADEVICE_TYPE_PRIVATE_BLE_SOURCE,
+}
+METADEVICE_DEVICETYPES: Final = {
+    METADEVICE_IBEACON_DEVICE,
+    METADEVICE_PRIVATE_BLE_DEVICE,
+}
 
 # Bluetooth Device Address Type - classify MAC addresses
 BDADDR_TYPE_UNKNOWN: Final = "bd_addr_type_unknown"  # uninitialised
@@ -109,8 +123,12 @@ class IrkTypes(Enum):
     """
 
     ADRESS_NOT_EVALUATED = bytes.fromhex("0000")  # default
-    NOT_RESOLVABLE_ADDRESS = bytes.fromhex("0001")  # address is not a resolvable private address.
-    NO_KNOWN_IRK_MATCH = bytes.fromhex("0002")  # none of the known keys match this address.
+    NOT_RESOLVABLE_ADDRESS = bytes.fromhex(
+        "0001"
+    )  # address is not a resolvable private address.
+    NO_KNOWN_IRK_MATCH = bytes.fromhex(
+        "0002"
+    )  # none of the known keys match this address.
 
     @classmethod
     def unresolved(cls) -> list[bytes]:
@@ -135,9 +153,13 @@ PRUNE_TIME_INTERVAL = 180  # Every 3m, prune stale devices
 # timeouts below that may result in prune/create/prune churn, but as long as
 # we only re-create *fresh* devices the risk is low.
 PRUNE_TIME_DEFAULT = 86400  # Max age of regular device entries (1day)
-PRUNE_TIME_UNKNOWN_IRK = 240  # Resolvable Private addresses change often, prune regularly.
+PRUNE_TIME_UNKNOWN_IRK = (
+    240  # Resolvable Private addresses change often, prune regularly.
+)
 # see Bluetooth Core Spec, Vol3, Part C, Appendix A, Table A.1: Defined GAP timers
-PRUNE_TIME_KNOWN_IRK: Final[int] = 16 * 60  # spec "recommends" 15 min max address age. Round up to 16 :-)
+PRUNE_TIME_KNOWN_IRK: Final[int] = (
+    16 * 60
+)  # spec "recommends" 15 min max address age. Round up to 16 :-)
 
 PRUNE_TIME_REDACTIONS: Final[int] = 10 * 60  # when to discard redaction data
 
@@ -146,7 +168,9 @@ SAVEOUT_COOLDOWN = 10  # seconds to delay before re-trying config entry save.
 DOCS = {}
 
 
-HIST_KEEP_COUNT = 10  # How many old timestamps, rssi, etc to keep for each device/scanner pairing.
+HIST_KEEP_COUNT = (
+    10  # How many old timestamps, rssi, etc to keep for each device/scanner pairing.
+)
 
 # Config entry DATA entries
 
@@ -195,23 +219,40 @@ DOCS[CONF_SMOOTHING_SAMPLES] = (
 )
 
 # Trilateration configuration
-CONF_TRILATERATION_ENABLED, DEFAULT_TRILATERATION_ENABLED = "trilateration_enabled", False
+CONF_TRILATERATION_ENABLED, DEFAULT_TRILATERATION_ENABLED = (
+    "trilateration_enabled",
+    False,
+)
 DOCS[CONF_TRILATERATION_ENABLED] = "Enable real trilateration for position calculation."
 
 CONF_SCANNER_POSITIONS = "scanner_positions"
-DOCS[CONF_SCANNER_POSITIONS] = "Dictionary of scanner positions {scanner_address: {'x': float, 'y': float, 'z': float}}"
+DOCS[
+    CONF_SCANNER_POSITIONS
+] = "Dictionary of scanner positions {scanner_address: {'x': float, 'y': float, 'z': float}}"
 
 CONF_ROOM_BOUNDARIES = "room_boundaries"
-DOCS[CONF_ROOM_BOUNDARIES] = "Dictionary of room boundary polygons {area_id: [{'x': float, 'y': float, 'z': float}, ...]}"
+DOCS[
+    CONF_ROOM_BOUNDARIES
+] = "Dictionary of room boundary polygons {area_id: [{'x': float, 'y': float, 'z': float}, ...]}"
 
 CONF_TRAINING_MODE = "training_mode"
 DOCS[CONF_TRAINING_MODE] = "Enable training mode for learning room boundaries."
 
-CONF_POSITION_SMOOTHING_SAMPLES, DEFAULT_POSITION_SMOOTHING_SAMPLES = "position_smoothing_samples", 5
-DOCS[CONF_POSITION_SMOOTHING_SAMPLES] = "Number of samples to smooth position calculations. Lower than distance smoothing for responsiveness."
+CONF_POSITION_SMOOTHING_SAMPLES, DEFAULT_POSITION_SMOOTHING_SAMPLES = (
+    "position_smoothing_samples",
+    5,
+)
+DOCS[
+    CONF_POSITION_SMOOTHING_SAMPLES
+] = "Number of samples to smooth position calculations. Lower than distance smoothing for responsiveness."
 
-CONF_MIN_TRILATERATION_CONFIDENCE, DEFAULT_MIN_TRILATERATION_CONFIDENCE = "min_trilateration_confidence", 0.3
-DOCS[CONF_MIN_TRILATERATION_CONFIDENCE] = "Minimum confidence (0-1) to use trilateration result, otherwise fallback to closest scanner."
+CONF_MIN_TRILATERATION_CONFIDENCE, DEFAULT_MIN_TRILATERATION_CONFIDENCE = (
+    "min_trilateration_confidence",
+    0.3,
+)
+DOCS[
+    CONF_MIN_TRILATERATION_CONFIDENCE
+] = "Minimum confidence (0-1) to use trilateration result, otherwise fallback to closest scanner."
 
 # Defaults
 DEFAULT_NAME = DOMAIN

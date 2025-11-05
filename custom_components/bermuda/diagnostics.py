@@ -13,7 +13,9 @@ if TYPE_CHECKING:
     from .coordinator import BermudaDataUpdateCoordinator
 
 
-async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: BermudaConfigEntry) -> dict[str, Any]:
+async def async_get_config_entry_diagnostics(
+    hass: HomeAssistant, entry: BermudaConfigEntry
+) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
     coordinator: BermudaDataUpdateCoordinator = entry.runtime_data.coordinator
 
@@ -28,7 +30,9 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: Bermuda
     data: dict[str, Any] = {
         "active_devices": f"{coordinator.count_active_devices()}/{len(coordinator.devices)}",
         "active_scanners": f"{coordinator.count_active_scanners()}/{len(coordinator.scanner_list)}",
-        "irk_manager": coordinator.redact_data(coordinator.irk_manager.async_diagnostics_no_redactions()),
+        "irk_manager": coordinator.redact_data(
+            coordinator.irk_manager.async_diagnostics_no_redactions()
+        ),
         "devices": await coordinator.service_dump_devices(call),
         "bt_manager": coordinator.redact_data(bt_diags),
     }

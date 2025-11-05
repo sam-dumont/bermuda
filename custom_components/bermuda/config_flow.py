@@ -73,7 +73,9 @@ class BermudaFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         self._errors = {}
 
-    async def async_step_bluetooth(self, discovery_info: BluetoothServiceInfoBleak) -> ConfigFlowResult:
+    async def async_step_bluetooth(
+        self, discovery_info: BluetoothServiceInfoBleak
+    ) -> ConfigFlowResult:
         """
         Support automatic initiation of setup through bluetooth discovery.
         (we still show a confirmation form to the user, though)
@@ -87,7 +89,9 @@ class BermudaFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
 
-        return self.async_show_form(step_id="user", description_placeholders={"name": NAME})
+        return self.async_show_form(
+            step_id="user", description_placeholders={"name": NAME}
+        )
 
     async def async_step_user(self, user_input=None):
         """
@@ -101,9 +105,13 @@ class BermudaFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             # create the integration!
-            return self.async_create_entry(title=NAME, data={"source": "user"}, description=NAME)
+            return self.async_create_entry(
+                title=NAME, data={"source": "user"}, description=NAME
+            )
 
-        return self.async_show_form(step_id="user", description_placeholders={"name": NAME})
+        return self.async_show_form(
+            step_id="user", description_placeholders={"name": NAME}
+        )
 
     @staticmethod
     @callback
@@ -211,7 +219,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
             ): vol.Coerce(float),
             vol.Required(
                 CONF_DEVTRACK_TIMEOUT,
-                default=self.options.get(CONF_DEVTRACK_TIMEOUT, DEFAULT_DEVTRACK_TIMEOUT),
+                default=self.options.get(
+                    CONF_DEVTRACK_TIMEOUT, DEFAULT_DEVTRACK_TIMEOUT
+                ),
             ): vol.Coerce(int),
             vol.Required(
                 CONF_UPDATE_INTERVAL,
@@ -219,7 +229,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
             ): vol.Coerce(float),
             vol.Required(
                 CONF_SMOOTHING_SAMPLES,
-                default=self.options.get(CONF_SMOOTHING_SAMPLES, DEFAULT_SMOOTHING_SAMPLES),
+                default=self.options.get(
+                    CONF_SMOOTHING_SAMPLES, DEFAULT_SMOOTHING_SAMPLES
+                ),
             ): vol.Coerce(int),
             vol.Required(
                 CONF_ATTENUATION,
@@ -231,7 +243,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
             ): vol.Coerce(float),
         }
 
-        return self.async_show_form(step_id="globalopts", data_schema=vol.Schema(data_schema))
+        return self.async_show_form(
+            step_id="globalopts", data_schema=vol.Schema(data_schema)
+        )
 
     async def async_step_selectdevices(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -278,7 +292,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
             if device.address_type == BDADDR_TYPE_RANDOM_RESOLVABLE:
                 # This is a random MAC, we should tag it as such
 
-                if device.last_seen < monotonic_time_coarse() - (60 * 60 * 2):  # two hours
+                if device.last_seen < monotonic_time_coarse() - (
+                    60 * 60 * 2
+                ):  # two hours
                     # A random MAC we haven't seen for a while is not much use, skip
                     continue
 
@@ -312,16 +328,24 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
                 (item for item in options_list if item["value"] == address.upper()),
                 False,
             ):
-                options_list.append(SelectOptionDict(value=address.upper(), label=f"[{address}] (saved)"))
+                options_list.append(
+                    SelectOptionDict(
+                        value=address.upper(), label=f"[{address}] (saved)"
+                    )
+                )
 
         data_schema = {
             vol.Optional(
                 CONF_DEVICES,
                 default=self.options.get(CONF_DEVICES, []),
-            ): SelectSelector(SelectSelectorConfig(options=options_list, multiple=True)),
+            ): SelectSelector(
+                SelectSelectorConfig(options=options_list, multiple=True)
+            ),
         }
 
-        return self.async_show_form(step_id="selectdevices", data_schema=vol.Schema(data_schema))
+        return self.async_show_form(
+            step_id="selectdevices", data_schema=vol.Schema(data_schema)
+        )
 
     async def async_step_calibration1_global(self, user_input=None):
         # FIXME: This is ridiculous. But I can't yet find a better way.
@@ -371,18 +395,24 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
         scanner_options = [
             SelectOptionDict(
                 value=scanner,
-                label=self.coordinator.devices[scanner].name if scanner in self.coordinator.devices else scanner,
+                label=self.coordinator.devices[scanner].name
+                if scanner in self.coordinator.devices
+                else scanner,
             )
             for scanner in self.coordinator.scanner_list
         ]
         data_schema = {
             vol.Required(
                 CONF_DEVICES,
-                default=self._last_device if self._last_device is not None else vol.UNDEFINED,
+                default=self._last_device
+                if self._last_device is not None
+                else vol.UNDEFINED,
             ): DeviceSelector(DeviceSelectorConfig(integration=DOMAIN)),
             vol.Required(
                 CONF_SCANNERS,
-                default=self._last_scanner if self._last_scanner is not None else vol.UNDEFINED,
+                default=self._last_scanner
+                if self._last_scanner is not None
+                else vol.UNDEFINED,
             ): SelectSelector(
                 SelectSelectorConfig(
                     options=scanner_options,
@@ -409,7 +439,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
                 step_id="calibration1_global",
                 data_schema=vol.Schema(data_schema),
                 description_placeholders=_ugly_token_hack
-                | {"suffix": "After you click Submit, the new distances will be shown here."},
+                | {
+                    "suffix": "After you click Submit, the new distances will be shown here."
+                },
             )
         results_str = ""
         device = self._get_bermuda_device_from_registry(user_input[CONF_DEVICES])
@@ -418,14 +450,20 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
             if scanner is None:
                 return self.async_show_form(
                     step_id="calibration1_global",
-                    errors={"err_scanner_no_record": "The selected scanner hasn't (yet) seen this device."},
+                    errors={
+                        "err_scanner_no_record": "The selected scanner hasn't (yet) seen this device."
+                    },
                     data_schema=vol.Schema(data_schema),
                     description_placeholders=_ugly_token_hack
-                    | {"suffix": "After you click Submit, the new distances will be shown here."},
+                    | {
+                        "suffix": "After you click Submit, the new distances will be shown here."
+                    },
                 )
 
             distances = [
-                rssi_to_metres(historical_rssi, self._last_ref_power, self._last_attenuation)
+                rssi_to_metres(
+                    historical_rssi, self._last_ref_power, self._last_attenuation
+                )
                 for historical_rssi in scanner.hist_rssi
             ]
 
@@ -507,11 +545,15 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
         data_schema = {
             vol.Required(
                 CONF_DEVICES,
-                default=self._last_device if self._last_device is not None else vol.UNDEFINED,
+                default=self._last_device
+                if self._last_device is not None
+                else vol.UNDEFINED,
             ): DeviceSelector(DeviceSelectorConfig(integration=DOMAIN)),
             vol.Required(
                 CONF_SCANNER_INFO,
-                default=rssi_offset_dict if not self._last_scanner_info else self._last_scanner_info,
+                default=rssi_offset_dict
+                if not self._last_scanner_info
+                else self._last_scanner_info,
             ): ObjectSelector(),
             vol.Optional(CONF_SAVE_AND_CLOSE, default=False): vol.Coerce(bool),
         }
@@ -519,7 +561,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
             return self.async_show_form(
                 step_id="calibration2_scanners",
                 data_schema=vol.Schema(data_schema),
-                description_placeholders={"suffix": "After you click Submit, the new distances will be shown here."},
+                description_placeholders={
+                    "suffix": "After you click Submit, the new distances will be shown here."
+                },
             )
         if isinstance(self._last_device, str):
             device = self._get_bermuda_device_from_registry(self._last_device)
@@ -540,7 +584,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
                         for historical_rssi in scanneradvert.hist_rssi
                     ]
             # Format the results for display (HA has full markdown support!)
-            results_str = "| Scanner | 0 | 1 | 2 | 3 | 4 |\n|---|---:|---:|---:|---:|---:|"
+            results_str = (
+                "| Scanner | 0 | 1 | 2 | 3 | 4 |\n|---|---:|---:|---:|---:|---:|"
+            )
             for scanner_name, distances in results.items():
                 results_str += f"\n|{scanner_name}|"
                 for i in range(5):
@@ -557,7 +603,9 @@ class BermudaOptionsFlowHandler(OptionsFlowWithConfigEntry):
             description_placeholders={"suffix": results_str},
         )
 
-    def _get_bermuda_device_from_registry(self, registry_id: str) -> BermudaDevice | None:
+    def _get_bermuda_device_from_registry(
+        self, registry_id: str
+    ) -> BermudaDevice | None:
         """
         Given a device registry device id, return the associated MAC address.
 

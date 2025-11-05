@@ -96,8 +96,13 @@ class BermudaNumber(BermudaEntity, RestoreNumber):
         """Restore values from HA storage on startup."""
         await super().async_added_to_hass()
         self.restored_data = await self.async_get_last_number_data()
-        if self.restored_data is not None and self.restored_data.native_value is not None:
-            self.coordinator.devices[self.address].set_ref_power(self.restored_data.native_value)
+        if (
+            self.restored_data is not None
+            and self.restored_data.native_value is not None
+        ):
+            self.coordinator.devices[self.address].set_ref_power(
+                self.restored_data.native_value
+            )
 
     @property
     def native_value(self) -> float | None:

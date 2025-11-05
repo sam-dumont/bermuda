@@ -23,6 +23,7 @@ from .const import (
 if TYPE_CHECKING:
     from . import BermudaConfigEntry
     from .coordinator import BermudaDataUpdateCoordinator
+
     # from . import BermudaDevice
 
 
@@ -50,11 +51,15 @@ class BermudaEntity(CoordinatorEntity):
         self.dr = dr.async_get(coordinator.hass)
         self.devreg_init_done = False
 
-        self.bermuda_update_interval = config_entry.options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
+        self.bermuda_update_interval = config_entry.options.get(
+            CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
+        )
         self.bermuda_last_state: Any = 0
         self.bermuda_last_stamp: float = 0
 
-    def _cached_ratelimit(self, statevalue: Any, fast_falling=True, fast_rising=False, interval=None):
+    def _cached_ratelimit(
+        self, statevalue: Any, fast_falling=True, fast_rising=False, interval=None
+    ):
         """
         Uses the CONF_UPDATE_INTERVAL and other logic to return either the given statevalue
         or an older, cached value. Helps to reduce excess sensor churn without compromising latency.
@@ -68,11 +73,17 @@ class BermudaEntity(CoordinatorEntity):
 
         nowstamp = monotonic_time_coarse()
         if (
-            (self.bermuda_last_stamp < nowstamp - self.bermuda_update_interval)  # Cache is stale
-            or (self._device.ref_power_changed > nowstamp + 2)  # ref power changed in last 2sec
+            (
+                self.bermuda_last_stamp < nowstamp - self.bermuda_update_interval
+            )  # Cache is stale
+            or (
+                self._device.ref_power_changed > nowstamp + 2
+            )  # ref power changed in last 2sec
             or (self.bermuda_last_state is None)  # Nothing compares to you.
             or (statevalue is None)  # or you.
-            or (fast_falling and statevalue < self.bermuda_last_state)  # (like Distance)
+            or (
+                fast_falling and statevalue < self.bermuda_last_state
+            )  # (like Distance)
             or (fast_rising and statevalue > self.bermuda_last_state)  # (like RSSI)
         ):
             # Publish the new value and update cache
@@ -97,7 +108,9 @@ class BermudaEntity(CoordinatorEntity):
             self._lastname = self._device.name
             if self.device_entry:
                 # We have a new name locally, so let's update the device registry.
-                self.dr.async_update_device(self.device_entry.id, name=self._device.name)
+                self.dr.async_update_device(
+                    self.device_entry.id, name=self._device.name
+                )
         self.async_write_ha_state()
 
     @property
@@ -126,9 +139,15 @@ class BermudaEntity(CoordinatorEntity):
             # except for received iBeacons.
             connections = {
                 # Keeps the distance_to entities the same across pre/post 2025.3
-                (dr.CONNECTION_NETWORK_MAC, (self._device.address_wifi_mac or self._device.address).lower()),
+                (
+                    dr.CONNECTION_NETWORK_MAC,
+                    (self._device.address_wifi_mac or self._device.address).lower(),
+                ),
                 # Ensures we can also match the Bluetooth integration entities.
-                (dr.CONNECTION_BLUETOOTH, (self._device.address_ble_mac or self._device.address).upper()),
+                (
+                    dr.CONNECTION_BLUETOOTH,
+                    (self._device.address_ble_mac or self._device.address).upper(),
+                ),
             }
         elif self._device.address_type == ADDR_TYPE_IBEACON:
             # ibeacon doesn't (yet) actually set a "connection", but

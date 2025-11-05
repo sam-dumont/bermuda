@@ -90,7 +90,9 @@ def calculate_confidence(
 
     # Normalize by average distance to make confidence scale-independent
     avg_distance = sum(distances) / len(distances) if distances else 1.0
-    normalized_residual = mean_residual / avg_distance if avg_distance > 0 else mean_residual
+    normalized_residual = (
+        mean_residual / avg_distance if avg_distance > 0 else mean_residual
+    )
 
     if method == "gaussian":
         # Gaussian decay: high confidence when residual is small
@@ -260,7 +262,9 @@ def trilaterate_3d(
                 weighted_z += scanner["z"] * weight
                 total_weight += weight
 
-        estimated_z = weighted_z / total_weight if total_weight > 0 else scanners[0]["z"]
+        estimated_z = (
+            weighted_z / total_weight if total_weight > 0 else scanners[0]["z"]
+        )
 
         result_2d["z"] = estimated_z
         result_2d["method"] = "2d+z_estimate"
