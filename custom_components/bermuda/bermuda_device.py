@@ -116,6 +116,20 @@ class BermudaDevice(dict):
         self.floor_icon: str = ICON_DEFAULT_FLOOR
         self.floor_level: str | None = None
 
+        # Trilateration position data
+        # For scanners: their configured physical position
+        self.position_x: float | None = None
+        self.position_y: float | None = None
+        self.position_z: float | None = None
+
+        # For tracked devices: their calculated position from trilateration
+        self.calculated_position_x: float | None = None
+        self.calculated_position_y: float | None = None
+        self.calculated_position_z: float | None = None
+        self.position_confidence: float | None = None  # 0-1 confidence score
+        self.position_scanner_count: int = 0  # Number of scanners used in calculation
+        self.position_history: list[dict[str, float]] = []  # For smoothing position calculations
+
         self.zone: str = STATE_NOT_HOME  # STATE_HOME or STATE_NOT_HOME
         self.manufacturer: str | None = None
         self._hascanner: BaseHaRemoteScanner | BaseHaScanner | None = None  # HA's scanner
