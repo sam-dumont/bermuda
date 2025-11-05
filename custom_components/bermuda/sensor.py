@@ -79,6 +79,13 @@ async def async_setup_entry(
             entities.append(BermudaSensorAreaLastSeen(coordinator, entry, address))
             entities.append(BermudaSensorAreaSwitchReason(coordinator, entry, address))
 
+            # Trilateration position sensors (disabled by default)
+            entities.append(BermudaSensorPositionX(coordinator, entry, address))
+            entities.append(BermudaSensorPositionY(coordinator, entry, address))
+            entities.append(BermudaSensorPositionZ(coordinator, entry, address))
+            entities.append(BermudaSensorTrilatConfidence(coordinator, entry, address))
+            entities.append(BermudaSensorScannerCount(coordinator, entry, address))
+
             # _LOGGER.debug("Sensor received new_device signal for %s", address)
             # We set update before add to False because we are being
             # call(back(ed)) from the update, so causing it to call another would be... bad.
@@ -589,3 +596,156 @@ class BermudaVisibleDeviceCount(BermudaGlobalSensor):
     def name(self):
         """Gets the name of the sensor."""
         return "Visible device count"
+
+
+# Trilateration Position Sensors
+
+class BermudaSensorPositionX(BermudaSensor):
+    """Sensor showing calculated X position coordinate."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def unique_id(self):
+        return f"{self._device.unique_id}_position_x"
+
+    @property
+    def name(self):
+        return "Position X"
+
+    @property
+    def native_value(self):
+        if self._device.calculated_position_x is not None:
+            return self._cached_ratelimit(round(self._device.calculated_position_x, 2))
+        return None
+
+    @property
+    def device_class(self):
+        return SensorDeviceClass.DISTANCE
+
+    @property
+    def native_unit_of_measurement(self):
+        return UnitOfLength.METERS
+
+    @property
+    def state_class(self):
+        return SensorStateClass.MEASUREMENT
+
+
+class BermudaSensorPositionY(BermudaSensor):
+    """Sensor showing calculated Y position coordinate."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def unique_id(self):
+        return f"{self._device.unique_id}_position_y"
+
+    @property
+    def name(self):
+        return "Position Y"
+
+    @property
+    def native_value(self):
+        if self._device.calculated_position_y is not None:
+            return self._cached_ratelimit(round(self._device.calculated_position_y, 2))
+        return None
+
+    @property
+    def device_class(self):
+        return SensorDeviceClass.DISTANCE
+
+    @property
+    def native_unit_of_measurement(self):
+        return UnitOfLength.METERS
+
+    @property
+    def state_class(self):
+        return SensorStateClass.MEASUREMENT
+
+
+class BermudaSensorPositionZ(BermudaSensor):
+    """Sensor showing calculated Z position coordinate (floor height)."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def unique_id(self):
+        return f"{self._device.unique_id}_position_z"
+
+    @property
+    def name(self):
+        return "Position Z (Floor Height)"
+
+    @property
+    def native_value(self):
+        if self._device.calculated_position_z is not None:
+            return self._cached_ratelimit(round(self._device.calculated_position_z, 2))
+        return None
+
+    @property
+    def device_class(self):
+        return SensorDeviceClass.DISTANCE
+
+    @property
+    def native_unit_of_measurement(self):
+        return UnitOfLength.METERS
+
+    @property
+    def state_class(self):
+        return SensorStateClass.MEASUREMENT
+
+
+class BermudaSensorTrilatConfidence(BermudaSensor):
+    """Sensor showing trilateration confidence score."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def unique_id(self):
+        return f"{self._device.unique_id}_trilat_confidence"
+
+    @property
+    def name(self):
+        return "Trilateration Confidence"
+
+    @property
+    def native_value(self):
+        if self._device.position_confidence is not None:
+            return self._cached_ratelimit(round(self._device.position_confidence, 3))
+        return None
+
+    @property
+    def native_unit_of_measurement(self):
+        return None  # Unitless 0-1 score
+
+    @property
+    def state_class(self):
+        return SensorStateClass.MEASUREMENT
+
+
+class BermudaSensorScannerCount(BermudaSensor):
+    """Sensor showing number of scanners used in trilateration."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def unique_id(self):
+        return f"{self._device.unique_id}_scanner_count"
+
+    @property
+    def name(self):
+        return "Scanner Count"
+
+    @property
+    def native_value(self):
+        return self._cached_ratelimit(self._device.position_scanner_count)
+
+    @property
+    def state_class(self):
+        return SensorStateClass.MEASUREMENT
