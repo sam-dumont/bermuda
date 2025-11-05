@@ -54,6 +54,8 @@ from homeassistant.util.dt import get_age, now
 
 from .bermuda_device import BermudaDevice
 from .bermuda_irk import BermudaIrkManager
+from . import room_learning
+from . import trilateration
 from .const import (
     _LOGGER,
     _LOGGER_SPAM_LESS,
@@ -70,6 +72,12 @@ from .const import (
     CONF_RSSI_OFFSETS,
     CONF_SMOOTHING_SAMPLES,
     CONF_UPDATE_INTERVAL,
+    CONF_TRILATERATION_ENABLED,
+    CONF_SCANNER_POSITIONS,
+    CONF_ROOM_BOUNDARIES,
+    CONF_TRAINING_MODE,
+    CONF_POSITION_SMOOTHING_SAMPLES,
+    CONF_MIN_TRILATERATION_CONFIDENCE,
     DEFAULT_ATTENUATION,
     DEFAULT_DEVTRACK_TIMEOUT,
     DEFAULT_MAX_RADIUS,
@@ -77,6 +85,9 @@ from .const import (
     DEFAULT_REF_POWER,
     DEFAULT_SMOOTHING_SAMPLES,
     DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_TRILATERATION_ENABLED,
+    DEFAULT_POSITION_SMOOTHING_SAMPLES,
+    DEFAULT_MIN_TRILATERATION_CONFIDENCE,
     DOMAIN,
     DOMAIN_PRIVATE_BLE_DEVICE,
     METADEVICE_IBEACON_DEVICE,
@@ -248,6 +259,17 @@ class BermudaDataUpdateCoordinator(DataUpdateCoordinator):
         self.options[CONF_UPDATE_INTERVAL] = DEFAULT_UPDATE_INTERVAL
         self.options[CONF_RSSI_OFFSETS] = {}
 
+        # Trilateration-specific options with defaults
+        self.options[CONF_TRILATERATION_ENABLED] = DEFAULT_TRILATERATION_ENABLED
+        self.options[CONF_SCANNER_POSITIONS] = {}
+        self.options[CONF_ROOM_BOUNDARIES] = {}
+        self.options[CONF_TRAINING_MODE] = False
+        self.options[CONF_POSITION_SMOOTHING_SAMPLES] = DEFAULT_POSITION_SMOOTHING_SAMPLES
+        self.options[CONF_MIN_TRILATERATION_CONFIDENCE] = DEFAULT_MIN_TRILATERATION_CONFIDENCE
+
+        # Room learning data (not in config, stored in memory)
+        self.room_samples: list = []  # List of RoomSample dicts
+
         if hasattr(entry, "options"):
             # Firstly, on some calls (specifically during reload after settings changes)
             # we seem to get called with a non-existant config_entry.
@@ -282,6 +304,67 @@ class BermudaDataUpdateCoordinator(DataUpdateCoordinator):
                 }
             ),
             SupportsResponse.ONLY,
+        )
+
+        # Register trilateration services
+        hass.services.async_register(
+            DOMAIN,
+            "mark_position",
+            self.service_mark_position,
+            vol.Schema(
+                {
+                    vol.Required("device_address"): cv.string,
+                    vol.Required("area_id"): cv.string,
+                }
+            ),
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            "calculate_room_boundaries",
+            self.service_calculate_room_boundaries,
+            vol.Schema(
+                {
+                    vol.Optional("method", default="convex_hull"): cv.string,
+                }
+            ),
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            "clear_room_samples",
+            self.service_clear_room_samples,
+            vol.Schema(
+                {
+                    vol.Optional("area_id"): cv.string,
+                }
+            ),
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            "export_floor_plan",
+            self.service_export_floor_plan,
+            vol.Schema(
+                {
+                    vol.Optional("include_history", default=False): cv.boolean,
+                }
+            ),
+            SupportsResponse.ONLY,
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            "set_scanner_position",
+            self.service_set_scanner_position,
+            vol.Schema(
+                {
+                    vol.Required("scanner_address"): cv.string,
+                    vol.Required("x"): vol.Coerce(float),
+                    vol.Required("y"): vol.Coerce(float),
+                    vol.Required("z"): vol.Coerce(float),
+                }
+            ),
         )
 
         # Register for newly discovered / changed BLE devices
@@ -660,6 +743,10 @@ class BermudaDataUpdateCoordinator(DataUpdateCoordinator):
                 device.calculate_data()
 
             self._refresh_areas_by_min_distance()
+
+            # Calculate positions via trilateration if enabled
+            if self.options.get(CONF_TRILATERATION_ENABLED, False):
+                self._refresh_areas_by_trilateration()
 
             # We might need to freshen deliberately on first start if no new scanners
             # were discovered in the first scan update. This is likely if nothing has changed
@@ -1470,6 +1557,84 @@ class BermudaDataUpdateCoordinator(DataUpdateCoordinator):
         # Apply the newly-found closest scanner (or apply None if we didn't find one)
         device.apply_scanner_selection(incumbent)
 
+    def _refresh_areas_by_trilateration(self):
+        """Calculate positions and assign areas using trilateration and room boundaries."""
+        room_boundaries_dict = self.options.get(CONF_ROOM_BOUNDARIES, {})
+        room_boundaries = list(room_boundaries_dict.values())
+
+        for device in self.devices.values():
+            if not device.create_sensor:
+                continue
+
+            # Calculate position
+            result = self._calculate_device_position(device)
+
+            if result is None:
+                # Trilateration failed, keep existing min_distance area
+                device.calculated_position_x = None
+                device.calculated_position_y = None
+                device.calculated_position_z = None
+                device.position_confidence = None
+                device.position_scanner_count = 0
+                continue
+
+            # Update device position
+            device.calculated_position_x = result["x"]
+            device.calculated_position_y = result["y"]
+            device.calculated_position_z = result["z"]
+            device.position_confidence = result["confidence"]
+            device.position_scanner_count = result["scanner_count"]
+
+            # Smooth position if we have history
+            if device.position_history:
+                smoothing_samples = self.options.get(
+                    CONF_POSITION_SMOOTHING_SAMPLES, DEFAULT_POSITION_SMOOTHING_SAMPLES
+                )
+                device.position_history.append(
+                    {"x": result["x"], "y": result["y"], "z": result["z"] or 0.0}
+                )
+                # Keep only recent history
+                device.position_history = device.position_history[-smoothing_samples:]
+
+                # Calculate smoothed position
+                if len(device.position_history) >= 2:
+                    avg_x = sum(p["x"] for p in device.position_history) / len(device.position_history)
+                    avg_y = sum(p["y"] for p in device.position_history) / len(device.position_history)
+                    avg_z = sum(p["z"] for p in device.position_history) / len(device.position_history)
+                    device.calculated_position_x = avg_x
+                    device.calculated_position_y = avg_y
+                    device.calculated_position_z = avg_z
+            else:
+                # Initialize history
+                device.position_history = [{"x": result["x"], "y": result["y"], "z": result["z"] or 0.0}]
+
+            # Detect room from position if we have learned boundaries
+            if room_boundaries and device.calculated_position_x is not None:
+                position = room_learning.Point3D(
+                    x=device.calculated_position_x,
+                    y=device.calculated_position_y,
+                    z=device.calculated_position_z or 0.0,
+                )
+
+                detected_room = room_learning.detect_room_from_position(position, room_boundaries)
+
+                if detected_room:
+                    # Update device area based on trilateration
+                    new_area_id = detected_room["room_id"]
+                    if device.area_id != new_area_id:
+                        device.area_id = new_area_id
+                        device.area_name = detected_room["room_name"]
+                        device.area = self.ar.async_get_area(new_area_id)
+                        _LOGGER.debug(
+                            "Trilateration assigned %s to room '%s' at position (%.2f, %.2f, %.2f) confidence %.2f",
+                            device.name,
+                            detected_room["room_name"],
+                            device.calculated_position_x,
+                            device.calculated_position_y,
+                            device.calculated_position_z or 0.0,
+                            device.position_confidence or 0.0,
+                        )
+
     def _refresh_scanners(self, force=False):
         """
         Refresh data on existing scanner objects, and rebuild if scannerlist has changed.
@@ -1616,6 +1781,224 @@ class BermudaDataUpdateCoordinator(DataUpdateCoordinator):
             else:
                 _LOGGER.debug("Dump devices redaction took %2f seconds", _stamp_redact_elapsed)
         return out
+
+    async def service_mark_position(self, call: ServiceCall) -> None:
+        """Record current device position for room learning."""
+        device_address = mac_norm(call.data.get("device_address"))
+        area_id = call.data.get("area_id")
+
+        # Get the device
+        device = self.devices.get(device_address)
+        if device is None:
+            _LOGGER.error("Device %s not found for mark_position", device_address)
+            return
+
+        # Calculate current position via trilateration
+        result = self._calculate_device_position(device)
+        if result is None:
+            _LOGGER.error("Could not calculate position for %s", device_address)
+            return
+
+        # Get area name from registry
+        area = self.ar.async_get_area(area_id)
+        if area is None:
+            _LOGGER.error("Area %s not found", area_id)
+            return
+
+        # Create room sample
+        sample = room_learning.RoomSample(
+            x=result["x"],
+            y=result["y"],
+            z=result["z"] if result["z"] is not None else 0.0,
+            timestamp=monotonic_time_coarse(),
+            room_id=area_id,
+            room_name=area.name,
+            confidence=result["confidence"],
+        )
+
+        self.room_samples.append(sample)
+        _LOGGER.info(
+            "Marked position (%.2f, %.2f, %.2f) for room '%s' (confidence: %.2f)",
+            sample["x"],
+            sample["y"],
+            sample["z"],
+            sample["room_name"],
+            sample["confidence"],
+        )
+
+    async def service_calculate_room_boundaries(self, call: ServiceCall) -> None:
+        """Generate room boundaries from collected samples."""
+        method = call.data.get("method", "convex_hull")
+
+        # Group samples by room
+        rooms_samples: dict[str, list] = {}
+        for sample in self.room_samples:
+            room_id = sample["room_id"]
+            if room_id not in rooms_samples:
+                rooms_samples[room_id] = []
+            rooms_samples[room_id].append(sample)
+
+        # Calculate boundaries for each room
+        room_boundaries = []
+        for room_id, samples in rooms_samples.items():
+            boundary = room_learning.calculate_room_boundary(samples, method=method)
+            if boundary is not None:
+                room_boundaries.append(boundary)
+                _LOGGER.info(
+                    "Calculated boundary for room '%s' with %d samples",
+                    boundary["room_name"],
+                    boundary["sample_count"],
+                )
+
+        # Store boundaries in config
+        boundaries_dict = {}
+        for boundary in room_boundaries:
+            boundaries_dict[boundary["room_id"]] = boundary
+
+        self.options[CONF_ROOM_BOUNDARIES] = boundaries_dict
+        await self._async_save_config_entry()
+        _LOGGER.info("Saved %d room boundaries", len(room_boundaries))
+
+    async def service_clear_room_samples(self, call: ServiceCall) -> None:
+        """Clear room position samples."""
+        area_id = call.data.get("area_id")
+
+        if area_id:
+            # Clear specific room
+            self.room_samples = [s for s in self.room_samples if s["room_id"] != area_id]
+            _LOGGER.info("Cleared samples for room %s", area_id)
+        else:
+            # Clear all
+            self.room_samples = []
+            _LOGGER.info("Cleared all room samples")
+
+    async def service_export_floor_plan(self, call: ServiceCall) -> ServiceResponse:
+        """Export floor plan data for visualization."""
+        include_history = call.data.get("include_history", False)
+
+        # Get room boundaries
+        room_boundaries_dict = self.options.get(CONF_ROOM_BOUNDARIES, {})
+        room_boundaries = list(room_boundaries_dict.values())
+
+        # Export boundaries
+        floor_plan_data = room_learning.export_room_boundaries_for_visualization(room_boundaries)
+
+        # Add scanner positions
+        scanners_data = []
+        scanner_positions = self.options.get(CONF_SCANNER_POSITIONS, {})
+        for device in self.devices.values():
+            if device.is_scanner:
+                pos = scanner_positions.get(device.address, {})
+                scanners_data.append(
+                    {
+                        "address": device.address,
+                        "name": device.name,
+                        "x": pos.get("x", device.position_x),
+                        "y": pos.get("y", device.position_y),
+                        "z": pos.get("z", device.position_z),
+                        "area_id": device.area_id,
+                        "area_name": device.area_name,
+                    }
+                )
+
+        floor_plan_data["scanners"] = scanners_data
+
+        # Add current device positions
+        devices_data = []
+        for device in self.devices.values():
+            if device.create_sensor and device.calculated_position_x is not None:
+                devices_data.append(
+                    {
+                        "address": device.address,
+                        "name": device.name,
+                        "x": device.calculated_position_x,
+                        "y": device.calculated_position_y,
+                        "z": device.calculated_position_z,
+                        "confidence": device.position_confidence,
+                        "area_id": device.area_id,
+                        "area_name": device.area_name,
+                    }
+                )
+
+        floor_plan_data["devices"] = devices_data
+
+        # Add room samples if requested
+        if include_history:
+            floor_plan_data["samples"] = self.room_samples
+
+        return floor_plan_data
+
+    async def service_set_scanner_position(self, call: ServiceCall) -> None:
+        """Set scanner position manually."""
+        scanner_address = mac_norm(call.data.get("scanner_address"))
+        x = call.data.get("x")
+        y = call.data.get("y")
+        z = call.data.get("z")
+
+        # Get scanner device
+        scanner = self.devices.get(scanner_address)
+        if scanner is None or not scanner.is_scanner:
+            _LOGGER.error("Scanner %s not found", scanner_address)
+            return
+
+        # Update scanner position
+        scanner.position_x = x
+        scanner.position_y = y
+        scanner.position_z = z
+
+        # Save to config
+        scanner_positions = self.options.get(CONF_SCANNER_POSITIONS, {})
+        scanner_positions[scanner_address] = {"x": x, "y": y, "z": z}
+        self.options[CONF_SCANNER_POSITIONS] = scanner_positions
+        await self._async_save_config_entry()
+
+        _LOGGER.info(
+            "Set scanner %s position to (%.2f, %.2f, %.2f)",
+            scanner.name,
+            x,
+            y,
+            z,
+        )
+
+    def _calculate_device_position(self, device: BermudaDevice) -> trilateration.PositionResult | None:
+        """Calculate device position using trilateration."""
+        # Collect scanner data
+        scanners_data = []
+
+        for advert in device.adverts.values():
+            if advert.rssi_distance is None or advert.rssi_distance <= 0:
+                continue
+
+            # Find the scanner device
+            scanner = self.devices.get(advert.scanner_address)
+            if scanner is None or not scanner.is_scanner:
+                continue
+
+            # Check if scanner has position configured
+            scanner_positions = self.options.get(CONF_SCANNER_POSITIONS, {})
+            if scanner.address in scanner_positions:
+                pos = scanner_positions[scanner.address]
+                scanner_data = trilateration.ScannerData(
+                    x=pos["x"],
+                    y=pos["y"],
+                    z=pos["z"],
+                    distance=advert.rssi_distance,
+                    address=scanner.address,
+                )
+                scanners_data.append(scanner_data)
+
+        if len(scanners_data) < 3:
+            return None
+
+        # Calculate position
+        min_confidence = self.options.get(CONF_MIN_TRILATERATION_CONFIDENCE, DEFAULT_MIN_TRILATERATION_CONFIDENCE)
+        result = trilateration.trilaterate(
+            scanners_data,
+            prefer_3d=True,
+            min_confidence=min_confidence,
+        )
+
+        return result
 
     def redaction_list_update(self):
         """

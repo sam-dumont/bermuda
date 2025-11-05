@@ -13,3 +13,96 @@ dump_devices:
       required: false
       example: "False"
       default: false
+
+mark_position:
+  name: Mark current position for room learning
+  description: Record the current device position as being in a specific room/area. Used for training room boundaries.
+  fields:
+    device_address:
+      required: true
+      description: MAC address of the device to use for position
+      example: "EE:E8:37:9F:6B:54"
+      selector:
+        text:
+    area_id:
+      required: true
+      description: The Home Assistant area/room you are currently in
+      selector:
+        area:
+
+calculate_room_boundaries:
+  name: Calculate room boundaries
+  description: Generate room boundary polygons from collected position samples. Run after collecting enough position marks.
+  fields:
+    method:
+      required: false
+      description: Boundary calculation method
+      default: "convex_hull"
+      example: "convex_hull"
+      selector:
+        select:
+          options:
+            - "convex_hull"
+            - "bounding_box"
+
+clear_room_samples:
+  name: Clear room position samples
+  description: Clear all collected position samples for room learning. Use to start over.
+  fields:
+    area_id:
+      required: false
+      description: Specific area/room to clear (leave empty to clear all rooms)
+      selector:
+        area:
+
+export_floor_plan:
+  name: Export floor plan visualization
+  description: Export scanner positions, room boundaries, and device positions for visualization
+  fields:
+    include_history:
+      required: false
+      description: Include historical position data
+      default: false
+      selector:
+        boolean:
+
+set_scanner_position:
+  name: Set scanner position
+  description: Manually set the X, Y, Z coordinates of a Bluetooth scanner
+  fields:
+    scanner_address:
+      required: true
+      description: MAC address of the scanner
+      example: "AA:BB:CC:DD:EE:FF"
+      selector:
+        text:
+    x:
+      required: true
+      description: X coordinate in meters
+      example: 0.0
+      selector:
+        number:
+          min: -100
+          max: 100
+          step: 0.1
+          unit_of_measurement: "m"
+    y:
+      required: true
+      description: Y coordinate in meters
+      example: 0.0
+      selector:
+        number:
+          min: -100
+          max: 100
+          step: 0.1
+          unit_of_measurement: "m"
+    z:
+      required: true
+      description: Z coordinate in meters (floor height)
+      example: 0.0
+      selector:
+        number:
+          min: -100
+          max: 100
+          step: 0.1
+          unit_of_measurement: "m"
